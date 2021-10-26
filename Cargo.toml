@@ -7,3 +7,6 @@ edition = "2018"
 
 [dependencies]
 keri = { git = "https://github.com/decentralized-identity/keriox" }
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
+serde = { version = "1.0", features = ["derive"] }
