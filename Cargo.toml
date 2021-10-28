@@ -10,3 +10,5 @@ keri = { git = "https://github.com/decentralized-identity/keriox" }
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 serde = { version = "1.0", features = ["derive"] }
+ed25519-dalek = "1.0.1"
+rand = { version = "0.7.3", features = ["std", "getrandom"] }
