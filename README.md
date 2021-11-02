@@ -10,7 +10,7 @@
     
 * to get kel of `DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA`: 
 
-    ```http://localhost:3030/receipts/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA```
+    ```http://localhost:3030/kel/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA```
 
 * to get receipts for `DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA`: 
 

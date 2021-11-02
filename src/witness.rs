@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use keri::{
     database::sled::SledEventDatabase,
@@ -13,6 +13,7 @@ use keri::{
     processor::EventProcessor,
 };
 use rand::rngs::OsRng;
+use tempfile::tempdir;
 
 type Result<T> = std::result::Result<T, keri::error::Error>;
 
@@ -30,7 +31,8 @@ impl Witness {
         let sk = PrivateKey::new(sk.to_bytes().to_vec());
         let keypair = (sk, vk.clone());
         let prefix = Basic::Ed25519.derive(vk);
-        let db = Arc::new(SledEventDatabase::new(Path::new("./db")).unwrap());
+        let dir = tempdir().unwrap();
+        let db = Arc::new(SledEventDatabase::new(dir.path()).unwrap());
         Self {
             keypair,
             prefix,
@@ -44,7 +46,7 @@ impl Witness {
 
         processor.process(message.clone())?;
 
-        // TODO Create witness receipt and add it to db
+        // Create witness receipt and add it to db
         let ser = stream.as_bytes();
         if let Deserialized::Event(ev) = message {
             let signature = self.keypair.0.sign_ed(&ser)?;
@@ -56,11 +58,6 @@ impl Witness {
 
             let signed_rcp =
                 SignedNontransferableReceipt::new(&rcp, vec![(self.prefix.clone(), signature)]);
-
-            println!(
-                "rcp: {}",
-                String::from_utf8(signed_rcp.serialize().unwrap()).unwrap()
-            );
 
             processor.process(signed_message(&signed_rcp.serialize()?).unwrap().1)?;
 
@@ -74,8 +71,6 @@ impl Witness {
 
     pub fn resolve(&self, id: &IdentifierPrefix) -> Result<Option<Vec<u8>>> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
-        let t = processor.get_kerl(id);
-        println!("t: {}", String::from_utf8(t.unwrap().unwrap()).unwrap());
         processor.get_kerl(id)
     }
 
