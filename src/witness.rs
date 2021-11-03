@@ -41,14 +41,25 @@ impl Witness {
     }
 
     pub fn process(&self, stream: &str) -> Result<Vec<u8>> {
-        let (_rest, message) = signed_message(&stream.as_bytes()).unwrap();
+        let mut s = stream.as_bytes();
+        while !s.is_empty() {
+            let (rest, message) = signed_message(&s).unwrap();
+            s = rest;
+            self.process_one(message)?;
+
+        }
+        // TODO
+        Ok(vec![])
+    }
+
+    pub fn process_one(&self, message: Deserialized) -> Result<Vec<u8>> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
 
         processor.process(message.clone())?;
 
         // Create witness receipt and add it to db
-        let ser = stream.as_bytes();
         if let Deserialized::Event(ev) = message {
+            let ser = ev.deserialized_event.raw;
             let signature = self.keypair.0.sign_ed(&ser)?;
             let rcp = ReceiptBuilder::new()
                 .with_receipted_event(ev.deserialized_event.event_message)
