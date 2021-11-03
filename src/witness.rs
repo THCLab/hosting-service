@@ -46,9 +46,8 @@ impl Witness {
             let (rest, message) = signed_message(&s).unwrap();
             s = rest;
             self.process_one(message)?;
-
         }
-        // TODO
+        // TODO return receipts?
         Ok(vec![])
     }
 
