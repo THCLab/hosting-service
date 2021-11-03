@@ -1,4 +1,4 @@
-use hosting_service::http_witness::HttpWitness;
+use keri_witness_http::http_witness::HttpWitness;
 
 #[tokio::test]
 async fn test_process() {
