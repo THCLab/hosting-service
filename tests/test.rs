@@ -17,16 +17,17 @@ async fn test_process() {
         .await;
 
     let kel = client
-        .get("http://localhost:3030/kel/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA")
+        .get("http://localhost:3030/identifier/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA/kel")
         .send()
         .await;
 
     assert_eq!(kel.unwrap().text().await.unwrap(), sent_event);
 
     let receipts = client
-        .get("http://localhost:3030/receipts/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA")
+        .get("http://localhost:3030/identifier/DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA/receipts")
         .send()
         .await;
 
+    assert!(receipts.is_ok());
     println!("receipts = {}", receipts.unwrap().text().await.unwrap());
 }

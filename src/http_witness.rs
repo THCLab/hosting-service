@@ -54,12 +54,13 @@ mod filters {
             })
     }
 
-    // GET /kel/{identifier}
+    // GET /identifier/{identifier}/kel
     pub fn get_kel(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("kel")
-            .and(warp::path::param())
+        warp::path("identifier")
+        .and(warp::path::param())
+        .and(warp::path("kel"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
                 let id: IdentifierPrefix = identifier.parse().unwrap();
@@ -70,12 +71,13 @@ mod filters {
             })
     }
 
-    // GET/receipts/{identifier}
+    // GET /identifier/{identifier}/receipts
     pub fn get_receipts(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("receipts")
-            .and(warp::path::param())
+         warp::path("identifier")
+        .and(warp::path::param())
+            .and(warp::path("receipts"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
                 let id: IdentifierPrefix = identifier.parse().unwrap();
