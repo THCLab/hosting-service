@@ -63,9 +63,8 @@ impl Witness {
 
             signed_rcp.serialize()
         } else {
-            Err(keri::error::Error::SemanticError(
-                "Wrong event type".to_string(),
-            ))
+            // It's a receipt
+            Ok(vec![])
         }
     }
 
