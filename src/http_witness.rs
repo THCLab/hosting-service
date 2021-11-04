@@ -1,5 +1,5 @@
 use crate::witness::Witness;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use warp::Future;
 
 pub struct HttpWitness {
@@ -7,9 +7,10 @@ pub struct HttpWitness {
 }
 
 impl HttpWitness {
-    pub fn new() -> Self {
+    pub fn new(db_path_str: &str) -> Self {
+        let db_path = Path::new(db_path_str);
         Self {
-            witness: Arc::new(Witness::new()),
+            witness: Arc::new(Witness::new(db_path)),
         }
     }
 
@@ -31,7 +32,7 @@ mod filters {
     pub fn all_filters(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        publish(db.clone()).or(get_kel(db.clone()).or(get_receipts(db.clone())))
+        publish(db.clone()).or(get_kel(db.clone()).or(get_receipts(db)))
     }
 
     // POST /publish with JSON body
@@ -44,13 +45,9 @@ mod filters {
             .map(move |param: Bytes, wit: Arc<Witness>| {
                 let b = String::from_utf8(param.to_vec()).unwrap();
                 match wit.process(&b) {
-                    Ok(receipts) => {
-                        return Ok(String::from_utf8(receipts).unwrap());
-                    }
-                    Err(e) => {
-                        return Ok(e.to_string());
-                    }
-                };
+                    Ok(receipts) => Ok(String::from_utf8(receipts).unwrap()),
+                    Err(e) => Ok(e.to_string()),
+                }
             })
     }
 
@@ -59,8 +56,8 @@ mod filters {
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path("identifier")
-        .and(warp::path::param())
-        .and(warp::path("kel"))
+            .and(warp::path::param())
+            .and(warp::path("kel"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
                 let id: IdentifierPrefix = identifier.parse().unwrap();
@@ -75,8 +72,8 @@ mod filters {
     pub fn get_receipts(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-         warp::path("identifier")
-        .and(warp::path::param())
+        warp::path("identifier")
+            .and(warp::path::param())
             .and(warp::path("receipts"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {

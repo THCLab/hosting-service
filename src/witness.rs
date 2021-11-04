@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use keri::{
     database::sled::SledEventDatabase,
@@ -13,7 +13,6 @@ use keri::{
     processor::EventProcessor,
 };
 use rand::rngs::OsRng;
-use tempfile::tempdir;
 
 type Result<T> = std::result::Result<T, keri::error::Error>;
 
@@ -24,15 +23,14 @@ pub struct Witness {
 }
 
 impl Witness {
-    pub fn new() -> Self {
+    pub fn new(db_path: &Path) -> Self {
         let kp = ed25519_dalek::Keypair::generate(&mut OsRng {});
         let (vk, sk) = (kp.public, kp.secret);
         let vk = PublicKey::new(vk.to_bytes().to_vec());
         let sk = PrivateKey::new(sk.to_bytes().to_vec());
         let keypair = (sk, vk.clone());
         let prefix = Basic::Ed25519.derive(vk);
-        let dir = tempdir().unwrap();
-        let db = Arc::new(SledEventDatabase::new(dir.path()).unwrap());
+        let db = Arc::new(SledEventDatabase::new(db_path).unwrap());
         Self {
             keypair,
             prefix,
@@ -43,7 +41,7 @@ impl Witness {
     pub fn process(&self, stream: &str) -> Result<Vec<u8>> {
         let mut s = stream.as_bytes();
         while !s.is_empty() {
-            let (rest, message) = signed_message(&s).unwrap();
+            let (rest, message) = signed_message(s).unwrap();
             s = rest;
             self.process_one(message)?;
         }
@@ -59,7 +57,7 @@ impl Witness {
         // Create witness receipt and add it to db
         if let Deserialized::Event(ev) = message {
             let ser = ev.deserialized_event.raw;
-            let signature = self.keypair.0.sign_ed(&ser)?;
+            let signature = self.keypair.0.sign_ed(ser)?;
             let rcp = ReceiptBuilder::new()
                 .with_receipted_event(ev.deserialized_event.event_message)
                 .build()?;

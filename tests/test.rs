@@ -1,9 +1,12 @@
+use std::env;
+
 use keri_witness_http::http_witness::HttpWitness;
 
 #[tokio::test]
 async fn test_process() {
     tokio::spawn(async {
-        let service = HttpWitness::new();
+        let temp_dir_path: String = env::temp_dir().to_str().unwrap().into();
+        let service = HttpWitness::new(&temp_dir_path);
         service.listen().await;
     });
 
