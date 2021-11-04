@@ -1,6 +1,6 @@
 # keri-witness-http 
 
-Rest API interface:
+REST API interface:
 
 ```
 POST /publish {KEL}

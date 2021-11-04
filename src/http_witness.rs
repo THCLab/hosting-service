@@ -16,7 +16,7 @@ impl HttpWitness {
     pub fn listen(&self) -> impl Future {
         let api = filters::all_filters(Arc::clone(&self.witness));
 
-        warp::serve(api).run(([127, 0, 0, 1], 3030))
+        warp::serve(api).run(([0, 0, 0, 0], 3030))
     }
 }
 
