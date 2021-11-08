@@ -23,8 +23,10 @@ impl HttpWitness {
 mod filters {
     use std::sync::Arc;
 
+    use http::StatusCode;
     use keri::prefix::IdentifierPrefix;
-    use warp::{hyper::body::Bytes, Filter};
+
+    use warp::{hyper::body::Bytes, reply::with_status, Filter};
 
     use crate::witness::Witness;
 
@@ -44,8 +46,14 @@ mod filters {
             .map(move |param: Bytes, wit: Arc<Witness>| {
                 let b = String::from_utf8(param.to_vec()).unwrap();
                 match wit.process(&b) {
-                    Ok(receipts) => Ok(String::from_utf8(receipts).unwrap()),
-                    Err(e) => Ok(e.to_string()),
+                    Ok(receipts) => Ok(with_status(
+                        String::from_utf8(receipts).unwrap(),
+                        StatusCode::OK,
+                    )),
+                    Err(e) => Ok(with_status(
+                        format!("{{\"error\":\"{}\"}}", e.to_string()),
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                    )),
                 }
             })
     }

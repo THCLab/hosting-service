@@ -14,7 +14,9 @@ use keri::{
 };
 use rand::rngs::OsRng;
 
-type Result<T> = std::result::Result<T, keri::error::Error>;
+use crate::error::Error;
+
+type Result<T> = std::result::Result<T, Error>;
 
 pub struct Witness {
     keypair: (PrivateKey, PublicKey),
@@ -41,7 +43,24 @@ impl Witness {
     pub fn process(&self, stream: &str) -> Result<Vec<u8>> {
         let mut s = stream.as_bytes();
         while !s.is_empty() {
-            let (rest, message) = signed_message(s).unwrap();
+            let (rest, message) = signed_message(s)
+                .map_err(|err| {
+                    let reason = err.map(|(rest, kind)|
+                        // TODO probably keriox should return not nom related errors.
+                        if kind.description().contains("IsNot") {
+                            // cant parse signed event message
+                            format!("Can't parse part of stream: {}", std::str::from_utf8(rest).unwrap())
+                        } else if kind.description().contains("End of file") {
+                            format!("Incomplete stream")
+                        } else {
+                            "".into()
+                        }
+                    );
+                        Error::ParseError(
+                            reason.to_string()
+                        )
+                    })?;
+
             s = rest;
             self.process_one(message)?;
         }
@@ -69,7 +88,7 @@ impl Witness {
 
             processor.process(signed_message(&signed_rcp.serialize()?).unwrap().1)?;
 
-            signed_rcp.serialize()
+            Ok(signed_rcp.serialize()?)
         } else {
             // It's a receipt
             Ok(vec![])
@@ -78,7 +97,7 @@ impl Witness {
 
     pub fn resolve(&self, id: &IdentifierPrefix) -> Result<Option<Vec<u8>>> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
-        processor.get_kerl(id)
+        Ok(processor.get_kerl(id)?)
     }
 
     pub fn get_receipts(&self, id: &IdentifierPrefix) -> Result<Option<Vec<u8>>> {
