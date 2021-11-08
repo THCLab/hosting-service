@@ -7,8 +7,7 @@ pub struct HttpWitness {
 }
 
 impl HttpWitness {
-    pub fn new(db_path_str: &str) -> Self {
-        let db_path = Path::new(db_path_str);
+    pub fn new(db_path: &Path) -> Self {
         Self {
             witness: Arc::new(Witness::new(db_path)),
         }
