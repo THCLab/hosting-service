@@ -4,7 +4,7 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 #[tokio::test]
-async fn test_process() {
+async fn basic_test() {
     tokio::spawn(async {
         let dir = tempdir().unwrap();
         let service = HttpWitness::new(&dir.path());
@@ -33,7 +33,7 @@ async fn test_process() {
         .await;
 
     assert!(receipts.is_ok());
-    println!("receipts = {}", receipts.unwrap().text().await.unwrap());
+    // println!("receipts = {}", receipts.unwrap().text().await.unwrap());
 }
 
 #[tokio::test]
@@ -83,11 +83,7 @@ async fn test_process_stream() {
     // Expected parsing results
     let expected = (3, "", 3, 0);
 
-    let res = client
-        .post(url)
-        .body(ok_stream)
-        .send()
-        .await.unwrap();
+    let res = client.post(url).body(ok_stream).send().await.unwrap();
     assert_eq!(res.status().clone(), StatusCode::OK);
 
     let response_str = res.text().await.unwrap();
@@ -101,7 +97,8 @@ async fn test_process_stream() {
         .post(url)
         .body(wrong_signature_stream)
         .send()
-        .await.unwrap();
+        .await
+        .unwrap();
     assert_eq!(res.status().clone(), StatusCode::OK);
     let response_str = res.text().await.unwrap();
     check_response(expected, &response_str);
@@ -109,11 +106,7 @@ async fn test_process_stream() {
     // Stream of 4 events where last event is duplicate
     let dup_stream = r#"{"v":"KERI10JSON0000ed_","i":"D15_ZODok1AuPrGfzE6VhMmT9gn6f7beC2tGIduPxRo8","s":"0","t":"icp","kt":"1","k":["D15_ZODok1AuPrGfzE6VhMmT9gn6f7beC2tGIduPxRo8"],"n":"EvBQ0CPWOANaC_SX4nPejD4tAQ5G_dvp1xR-W3zMbM-U","bt":"0","b":[],"c":[],"a":[]}-AABAA8RV41XkhnTwvVx-eF8tAFYywAmD_V0TRiRasqS_kYnG3F9jScQpCTteHOAuMpoY9hfJN8RvudooqPrvpJaGoBA{"v":"KERI10JSON000122_","i":"D15_ZODok1AuPrGfzE6VhMmT9gn6f7beC2tGIduPxRo8","s":"1","t":"rot","p":"E7kU_Im8oggF7yGCIb2hFqtJxub5dao6DmNBio1Ra73I","kt":"1","k":["DxauUsjTBfpGLKzpr7swM2gpxNQGZwjQbkB-vUASKrYo"],"n":"EZUJTljHFepUZgkhtd3Fzuu0k8pyk2uFx1Zp3IizNL14","bt":"0","br":[],"ba":[],"a":[]}-AABAAAP-vmtkjB0VVaaXDeLSzNxmT--widHi3MNn7m58ecqUMzgu_Oxp0uRKUt4dDyetWV0NwSKYq3KWnybS46guaAA{"v":"KERI10JSON000098_","i":"D15_ZODok1AuPrGfzE6VhMmT9gn6f7beC2tGIduPxRo8","s":"2","t":"ixn","p":"EW9ikln3dOaJ1d7FY0AcCbzB-VU4HRJg2GOELVFosXBI","a":[]}-AABAAoQwEjNqR7Lrfh-coWJezWw_frdGr8IRqnig2_-q9hELAdvtFfrD6IgsikoIWKNSyzYuzGtwQtKO-H3Y3dMc9CQ{"v":"KERI10JSON000122_","i":"D15_ZODok1AuPrGfzE6VhMmT9gn6f7beC2tGIduPxRo8","s":"1","t":"rot","p":"E7kU_Im8oggF7yGCIb2hFqtJxub5dao6DmNBio1Ra73I","kt":"1","k":["DxauUsjTBfpGLKzpr7swM2gpxNQGZwjQbkB-vUASKrYo"],"n":"EZUJTljHFepUZgkhtd3Fzuu0k8pyk2uFx1Zp3IizNL14","bt":"0","br":[],"ba":[],"a":[]}-AABAAAP-vmtkjB0VVaaXDeLSzNxmT--widHi3MNn7m58ecqUMzgu_Oxp0uRKUt4dDyetWV0NwSKYq3KWnybS46guaAA"#;
     let expected = (4, "", 3, 1);
-    let res = client
-        .post(url)
-        .body(dup_stream)
-        .send()
-        .await.unwrap();
+    let res = client.post(url).body(dup_stream).send().await.unwrap();
     assert_eq!(res.status().clone(), StatusCode::OK);
     let response_str = res.text().await.unwrap();
     check_response(expected, &response_str);
@@ -129,19 +122,18 @@ async fn test_process_stream() {
         .unwrap();
 
     assert_eq!(res.status().clone(), StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(res.text().await.unwrap(), "{\"error\":\"Stream can't be parsed\"}");
-
+    assert_eq!(
+        res.text().await.unwrap(),
+        "{\"error\":\"Stream can't be parsed\"}"
+    );
 
     // Any string.
     let just_str = r#"no events here"#;
-    let res = client
-        .post(url)
-        .body(just_str)
-        .send()
-        .await
-        .unwrap();
-    
-    assert_eq!(res.status().clone(), StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(res.text().await.unwrap(), "{\"error\":\"Stream can't be parsed\"}");
+    let res = client.post(url).body(just_str).send().await.unwrap();
 
+    assert_eq!(res.status().clone(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        res.text().await.unwrap(),
+        "{\"error\":\"Stream can't be parsed\"}"
+    );
 }

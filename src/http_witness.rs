@@ -28,7 +28,7 @@ mod filters {
 
     use warp::{hyper::body::Bytes, reply::with_status, Filter};
 
-    use crate::witness::Witness;
+    use crate::{error::Error, witness::Witness};
 
     pub fn all_filters(
         db: Arc<Witness>,
@@ -49,14 +49,14 @@ mod filters {
                 match wit.process(&b) {
                     Ok((receipts, errors, rest)) => {
                         #[derive(Serialize, Deserialize)]
-                        struct Respon {
+                        struct RespondData {
                             parsed: u64,
                             not_parsed: String,
                             receipts: Vec<String>,
                             errors: Vec<String>,
                         }
 
-                        let res = Respon {
+                        let res = RespondData {
                             parsed: (receipts.len() + errors.len()) as u64,
                             not_parsed: String::from_utf8(rest).unwrap(),
                             receipts: receipts
@@ -68,13 +68,19 @@ mod filters {
                                 .map(|e| e.to_string())
                                 .collect::<Vec<String>>(),
                         };
-                        let response = serde_json::to_string(&res).unwrap();
-                        Ok(with_status(response, StatusCode::OK))
+                        // let response = serde_json::to_string(&res).unwrap();
+                        Ok(with_status(warp::reply::json(&res), StatusCode::OK))
                     }
-                    Err(e) => Ok(with_status(
-                        format!("{{\"error\":\"{}\"}}", e.to_string()),
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                    )),
+                    Err(e) => {
+                        #[derive(Serialize)]
+                        struct ErrorWrapper {
+                            error: Error,
+                        }
+                        Ok(with_status(
+                            warp::reply::json(&ErrorWrapper { error: e }),
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                        ))
+                    }
                 }
             })
     }
