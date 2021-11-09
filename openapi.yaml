@@ -1,0 +1,95 @@
+openapi: 3.0.4
+info:
+  version: 1.0.0
+  title: KERI HTTP Witness
+servers:
+  - url: 'http://localhost:3030'
+paths:
+  '/identifier/{prefix}/kel':
+    get:
+      summary: Gets KEL events for given identifier prefix
+      parameters:
+        - name: prefix
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CESRStream"
+        '404':
+          description: not found
+  '/identifier/{prefix}/receipts':
+    get:
+      summary: Gets KEL events receipts for given identifier prefix
+      parameters:
+        - name: prefix
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CESRStream"
+        '404':
+          description: not found
+  '/publish':
+    post:  
+      summary: Publishes provided key events from KEL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CESRStream"
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResponse'
+        '422':
+          description: failure operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    CESRStream:
+      properties:
+        response:
+          type: string
+    Error:
+      properties:
+        description:
+          type: string
+    PublishResponse:
+      properties:
+        parsed:
+          type: integer
+        not_parsed:
+          type: integer
+        receipts:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              sn:
+                type: integer
+              identifer:
+                type: string
+              error:
+                type: string
