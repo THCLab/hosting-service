@@ -5,7 +5,7 @@ use keri::{
     derivation::{basic::Basic, self_signing::SelfSigning},
     event_message::{
         event_msg_builder::ReceiptBuilder,
-        parse::{signed_message, Deserialized},
+        parse::{signed_event_stream, signed_message, Deserialized},
         signed_event_message::SignedNontransferableReceipt,
     },
     keys::{PrivateKey, PublicKey},
@@ -40,46 +40,49 @@ impl Witness {
         }
     }
 
-    pub fn process(&self, stream: &str) -> Result<Vec<u8>> {
-        let mut s = stream.as_bytes();
-        while !s.is_empty() {
-            let (rest, message) = signed_message(s)
-                .map_err(|err| {
-                    let reason = err.map(|(rest, kind)|
-                        // TODO probably keriox should return not nom related errors.
-                        if kind.description().contains("IsNot") {
-                            // cant parse signed event message
-                            format!("Can't parse part of stream: {}", std::str::from_utf8(rest).unwrap())
-                        } else if kind.description().contains("End of file") {
-                            format!("Incomplete stream")
-                        } else {
-                            "".into()
-                        }
-                    );
-                        Error::ParseError(
-                            reason.to_string()
-                        )
-                    })?;
+    pub fn process(
+        &self,
+        stream: &str,
+    ) -> Result<(Vec<SignedNontransferableReceipt>, Vec<Error>, Vec<u8>)> {
+        let (rest, events) = signed_event_stream(stream.as_bytes()).map_err(|err| {
+            let reason = err.map(|(_rest, kind)| kind.description().to_string());
+            Error::ParseError(reason.to_string())
+        })?;
 
-            s = rest;
-            self.process_one(message)?;
+        if events.is_empty() {
+            Err(Error::ParseError("Stream can't be parsed".into()))
+        } else {
+            let (oks, errs): (Vec<_>, Vec<_>) = events
+                .iter()
+                .map(|e| self.process_one(e))
+                .partition(Result::is_ok);
+            let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
+            let errs: Vec<_> = errs.into_iter().map(Result::unwrap_err).collect();
+
+            Ok((oks, errs, rest.to_vec()))
         }
-        // TODO return receipts?
-        Ok(vec![])
     }
 
-    pub fn process_one(&self, message: Deserialized) -> Result<Vec<u8>> {
+    pub fn process_one(&self, message: &Deserialized) -> Result<SignedNontransferableReceipt> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
 
-        processor.process(message.clone())?;
-
         // Create witness receipt and add it to db
-        if let Deserialized::Event(ev) = message {
+        if let Deserialized::Event(ev) = message.clone() {
+            let sn = ev.deserialized_event.event_message.event.sn;
+            let prefix = ev.deserialized_event.event_message.event.prefix.clone();
+            processor
+                .process(message.to_owned())
+                .map_err(|e| Error::ProcessingError(e, sn, prefix.clone()))?;
             let ser = ev.deserialized_event.raw;
-            let signature = self.keypair.0.sign_ed(ser)?;
+            let signature = self
+                .keypair
+                .0
+                .sign_ed(ser)
+                .map_err(|e| Error::ProcessingError(e, sn, prefix.clone()))?;
             let rcp = ReceiptBuilder::new()
                 .with_receipted_event(ev.deserialized_event.event_message)
-                .build()?;
+                .build()
+                .map_err(|e| Error::ProcessingError(e, sn, prefix))?;
 
             let signature = SelfSigning::Ed25519Sha512.derive(signature);
 
@@ -88,10 +91,10 @@ impl Witness {
 
             processor.process(signed_message(&signed_rcp.serialize()?).unwrap().1)?;
 
-            Ok(signed_rcp.serialize()?)
+            Ok(signed_rcp)
         } else {
             // It's a receipt
-            Ok(vec![])
+            todo!()
         }
     }
 

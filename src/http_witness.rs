@@ -13,10 +13,10 @@ impl HttpWitness {
         }
     }
 
-    pub fn listen(&self) -> impl Future {
+    pub fn listen(&self, port: u16) -> impl Future {
         let api = filters::all_filters(Arc::clone(&self.witness));
 
-        warp::serve(api).run(([0, 0, 0, 0], 3030))
+        warp::serve(api).run(([0, 0, 0, 0], port))
     }
 }
 
@@ -40,16 +40,37 @@ mod filters {
     pub fn publish(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        use serde::{Deserialize, Serialize};
         warp::path("publish")
             .and(warp::body::bytes())
             .and(warp::any().map(move || db.clone()))
             .map(move |param: Bytes, wit: Arc<Witness>| {
                 let b = String::from_utf8(param.to_vec()).unwrap();
                 match wit.process(&b) {
-                    Ok(receipts) => Ok(with_status(
-                        String::from_utf8(receipts).unwrap(),
-                        StatusCode::OK,
-                    )),
+                    Ok((receipts, errors, rest)) => {
+                        #[derive(Serialize, Deserialize)]
+                        struct Respon {
+                            parsed: u64,
+                            not_parsed: String,
+                            receipts: Vec<String>,
+                            errors: Vec<String>,
+                        }
+
+                        let res = Respon {
+                            parsed: (receipts.len() + errors.len()) as u64,
+                            not_parsed: String::from_utf8(rest).unwrap(),
+                            receipts: receipts
+                                .iter()
+                                .map(|r| String::from_utf8(r.serialize().unwrap()).unwrap())
+                                .collect(),
+                            errors: errors
+                                .iter()
+                                .map(|e| e.to_string())
+                                .collect::<Vec<String>>(),
+                        };
+                        let response = serde_json::to_string(&res).unwrap();
+                        Ok(with_status(response, StatusCode::OK))
+                    }
                     Err(e) => Ok(with_status(
                         format!("{{\"error\":\"{}\"}}", e.to_string()),
                         StatusCode::UNPROCESSABLE_ENTITY,
@@ -67,11 +88,18 @@ mod filters {
             .and(warp::path("kel"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
-                let id: IdentifierPrefix = identifier.parse().unwrap();
-
-                // TODO avoid unwraps
-                let kel = String::from_utf8(wit.resolve(&id).unwrap().unwrap()).unwrap();
-                Ok(kel)
+                let (repl, status) = match identifier.parse::<IdentifierPrefix>() {
+                    Ok(id) => {
+                        // TODO avoid unwraps
+                        let kel = String::from_utf8(wit.resolve(&id).unwrap().unwrap()).unwrap();
+                        (kel, StatusCode::OK)
+                    }
+                    Err(e) => (
+                        format!("{{\"error\":\"{}\"}}", e.to_string()),
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                    ),
+                };
+                Ok(with_status(repl, status))
             })
     }
 
@@ -84,11 +112,19 @@ mod filters {
             .and(warp::path("receipts"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
-                let id: IdentifierPrefix = identifier.parse().unwrap();
-
-                // TODO avoid unwraps
-                let rcps = String::from_utf8(wit.get_receipts(&id).unwrap().unwrap()).unwrap();
-                Ok(rcps)
+                let (repl, status) = match identifier.parse::<IdentifierPrefix>() {
+                    Ok(id) => {
+                        // TODO avoid unwraps
+                        let rcps =
+                            String::from_utf8(wit.get_receipts(&id).unwrap().unwrap()).unwrap();
+                        (rcps, StatusCode::OK)
+                    }
+                    Err(e) => (
+                        format!("{{\"error\":\"{}\"}}", e.to_string()),
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                    ),
+                };
+                Ok(with_status(repl, status))
             })
     }
 }
