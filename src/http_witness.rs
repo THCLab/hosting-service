@@ -26,7 +26,7 @@ mod filters {
     use http::StatusCode;
     use keri::prefix::IdentifierPrefix;
 
-    use warp::{hyper::body::Bytes, reply::with_status, Filter};
+    use warp::{hyper::body::Bytes, reply::with_status, Filter, Reply};
 
     use crate::{error::Error, witness::Witness};
 
@@ -94,18 +94,19 @@ mod filters {
             .and(warp::path("kel"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
-                let (repl, status) = match identifier.parse::<IdentifierPrefix>() {
+                match identifier.parse::<IdentifierPrefix>() {
                     Ok(id) => {
                         // TODO avoid unwraps
-                        let kel = String::from_utf8(wit.resolve(&id).unwrap().unwrap()).unwrap();
-                        (kel, StatusCode::OK)
+                        match wit.resolve(&id).unwrap() {
+                            Some(kel) => {
+                                with_status(String::from_utf8(kel).unwrap(), StatusCode::OK)
+                                    .into_response()
+                            }
+                            None => StatusCode::NOT_FOUND.into_response(),
+                        }
                     }
-                    Err(e) => (
-                        format!("{{\"error\":\"{}\"}}", e.to_string()),
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                    ),
-                };
-                Ok(with_status(repl, status))
+                    Err(_e) => StatusCode::NOT_FOUND.into_response(),
+                }
             })
     }
 
@@ -118,19 +119,19 @@ mod filters {
             .and(warp::path("receipts"))
             .and(warp::any().map(move || db.clone()))
             .map(move |identifier: String, wit: Arc<Witness>| {
-                let (repl, status) = match identifier.parse::<IdentifierPrefix>() {
+                match identifier.parse::<IdentifierPrefix>() {
                     Ok(id) => {
                         // TODO avoid unwraps
-                        let rcps =
-                            String::from_utf8(wit.get_receipts(&id).unwrap().unwrap()).unwrap();
-                        (rcps, StatusCode::OK)
+                        match wit.get_receipts(&id).unwrap() {
+                            Some(rcps) => {
+                                with_status(String::from_utf8(rcps).unwrap(), StatusCode::OK)
+                                    .into_response()
+                            }
+                            None => StatusCode::NOT_FOUND.into_response(),
+                        }
                     }
-                    Err(e) => (
-                        format!("{{\"error\":\"{}\"}}", e.to_string()),
-                        StatusCode::UNPROCESSABLE_ENTITY,
-                    ),
-                };
-                Ok(with_status(repl, status))
+                    Err(_e) => StatusCode::NOT_FOUND.into_response(),
+                }
             })
     }
 }

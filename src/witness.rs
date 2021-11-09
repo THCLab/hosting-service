@@ -104,13 +104,9 @@ impl Witness {
     }
 
     pub fn get_receipts(&self, id: &IdentifierPrefix) -> Result<Option<Vec<u8>>> {
-        Ok(Some(
-            self.db
-                .get_receipts_nt(id)
-                .unwrap()
-                .map(|r| r.serialize().unwrap())
-                .flatten()
-                .collect(),
-        ))
+        Ok(self
+            .db
+            .get_receipts_nt(id)
+            .map(|rcps| rcps.map(|r| r.serialize().unwrap()).flatten().collect()))
     }
 }
