@@ -1,16 +1,15 @@
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::Arc, convert::TryFrom};
 
 use keri::{
     database::sled::SledEventDatabase,
     derivation::{basic::Basic, self_signing::SelfSigning},
     event_message::{
         event_msg_builder::ReceiptBuilder,
-        parse::{signed_event_stream, signed_message, Deserialized},
-        signed_event_message::SignedNontransferableReceipt,
+        signed_event_message::{SignedNontransferableReceipt, Message},
     },
     keys::{PrivateKey, PublicKey},
     prefix::{BasicPrefix, IdentifierPrefix},
-    processor::EventProcessor,
+    processor::EventProcessor, event_parsing::{message::signed_event_stream, SignedEventData},
 };
 use rand::rngs::OsRng;
 
@@ -53,7 +52,7 @@ impl Witness {
             Err(Error::ParseError("Stream can't be parsed".into()))
         } else {
             let (oks, errs): (Vec<_>, Vec<_>) = events
-                .iter()
+                .into_iter()
                 .map(|e| self.process_one(e))
                 .partition(Result::is_ok);
             let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
@@ -63,24 +62,25 @@ impl Witness {
         }
     }
 
-    pub fn process_one(&self, message: &Deserialized) -> Result<SignedNontransferableReceipt> {
+    pub fn process_one(&self, message: SignedEventData) -> Result<SignedNontransferableReceipt> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
 
+        let message: Message = Message::try_from(message).unwrap();
         // Create witness receipt and add it to db
-        if let Deserialized::Event(ev) = message.clone() {
-            let sn = ev.deserialized_event.event_message.event.sn;
-            let prefix = ev.deserialized_event.event_message.event.prefix.clone();
+        if let Message::Event(ev) = message.clone() {
+            let sn = ev.event_message.event.get_sn();
+            let prefix = ev.event_message.event.get_prefix();
             processor
                 .process(message.to_owned())
                 .map_err(|e| Error::ProcessingError(e, sn, prefix.clone()))?;
-            let ser = ev.deserialized_event.raw;
+            let ser = ev.event_message.serialize()?;
             let signature = self
                 .keypair
                 .0
-                .sign_ed(ser)
+                .sign_ed(&ser)
                 .map_err(|e| Error::ProcessingError(e, sn, prefix.clone()))?;
-            let rcp = ReceiptBuilder::new()
-                .with_receipted_event(ev.deserialized_event.event_message)
+            let rcp = ReceiptBuilder::default()
+                .with_receipted_event(ev.event_message)
                 .build()
                 .map_err(|e| Error::ProcessingError(e, sn, prefix))?;
 
@@ -89,7 +89,7 @@ impl Witness {
             let signed_rcp =
                 SignedNontransferableReceipt::new(&rcp, vec![(self.prefix.clone(), signature)]);
 
-            processor.process(signed_message(&signed_rcp.serialize()?).unwrap().1)?;
+            processor.process(Message::NontransferableRct(signed_rcp.clone()))?;
 
             Ok(signed_rcp)
         } else {
@@ -107,6 +107,8 @@ impl Witness {
         Ok(self
             .db
             .get_receipts_nt(id)
-            .map(|rcps| rcps.map(|r| r.serialize().unwrap()).flatten().collect()))
+            .map(|rcps| rcps.map(|r| SignedEventData::from(r).to_cesr().unwrap())
+            .flatten().collect())
+        )
     }
 }
