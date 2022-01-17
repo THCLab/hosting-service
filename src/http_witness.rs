@@ -24,7 +24,7 @@ mod filters {
     use std::sync::Arc;
 
     use http::StatusCode;
-    use keri::{prefix::IdentifierPrefix, event_parsing::SignedEventData};
+    use keri::{event_parsing::SignedEventData, prefix::IdentifierPrefix};
 
     use warp::{hyper::body::Bytes, reply::with_status, Filter, Reply};
 
@@ -61,7 +61,10 @@ mod filters {
                             not_parsed: String::from_utf8(rest).unwrap(),
                             receipts: receipts
                                 .into_iter()
-                                .map(|r| String::from_utf8(SignedEventData::from(r).to_cesr().unwrap()).unwrap())
+                                .map(|r| {
+                                    String::from_utf8(SignedEventData::from(r).to_cesr().unwrap())
+                                        .unwrap()
+                                })
                                 .collect(),
                             errors: errors
                                 .iter()

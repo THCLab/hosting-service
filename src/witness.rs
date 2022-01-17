@@ -1,15 +1,16 @@
-use std::{path::Path, sync::Arc, convert::TryFrom};
+use std::{convert::TryFrom, path::Path, sync::Arc};
 
 use keri::{
     database::sled::SledEventDatabase,
     derivation::{basic::Basic, self_signing::SelfSigning},
     event_message::{
         event_msg_builder::ReceiptBuilder,
-        signed_event_message::{SignedNontransferableReceipt, Message},
+        signed_event_message::{Message, SignedNontransferableReceipt},
     },
+    event_parsing::{message::signed_event_stream, SignedEventData},
     keys::{PrivateKey, PublicKey},
     prefix::{BasicPrefix, IdentifierPrefix},
-    processor::EventProcessor, event_parsing::{message::signed_event_stream, SignedEventData},
+    processor::EventProcessor,
 };
 use rand::rngs::OsRng;
 
@@ -53,7 +54,10 @@ impl Witness {
         } else {
             let (oks, errs): (Vec<_>, Vec<_>) = events
                 .into_iter()
-                .map(|e| self.process_one(e))
+                .map(|e| {
+                    let message = Message::try_from(e)?;
+                    self.process_one(message)
+                })
                 .partition(Result::is_ok);
             let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
             let errs: Vec<_> = errs.into_iter().map(Result::unwrap_err).collect();
@@ -62,10 +66,9 @@ impl Witness {
         }
     }
 
-    pub fn process_one(&self, message: SignedEventData) -> Result<SignedNontransferableReceipt> {
+    pub fn process_one(&self, message: Message) -> Result<SignedNontransferableReceipt> {
         let processor = EventProcessor::new(Arc::clone(&self.db));
 
-        let message: Message = Message::try_from(message).unwrap();
         // Create witness receipt and add it to db
         if let Message::Event(ev) = message.clone() {
             let sn = ev.event_message.event.get_sn();
@@ -104,11 +107,10 @@ impl Witness {
     }
 
     pub fn get_receipts(&self, id: &IdentifierPrefix) -> Result<Option<Vec<u8>>> {
-        Ok(self
-            .db
-            .get_receipts_nt(id)
-            .map(|rcps| rcps.map(|r| SignedEventData::from(r).to_cesr().unwrap())
-            .flatten().collect())
-        )
+        Ok(self.db.get_receipts_nt(id).map(|rcps| {
+            rcps.map(|r| SignedEventData::from(r).to_cesr().unwrap())
+                .flatten()
+                .collect()
+        }))
     }
 }
