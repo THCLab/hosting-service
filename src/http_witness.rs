@@ -9,7 +9,7 @@ pub struct HttpWitness {
 impl HttpWitness {
     pub fn new(db_path: &Path) -> Self {
         Self {
-            witness: Arc::new(Witness::new(db_path)),
+            witness: Arc::new(Witness::new(db_path, vec![])),
         }
     }
 
