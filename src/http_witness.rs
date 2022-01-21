@@ -1,4 +1,5 @@
 use crate::witness::Witness;
+use keri::prefix::Prefix;
 use std::{path::Path, sync::Arc};
 use warp::Future;
 
@@ -15,6 +16,11 @@ impl HttpWitness {
 
     pub fn listen(&self, port: u16) -> impl Future {
         let api = filters::all_filters(Arc::clone(&self.witness));
+        println!(
+            "Witness {} is listening on port {}",
+            self.witness.get_prefix().to_str(),
+            port
+        );
 
         warp::serve(api).run(([0, 0, 0, 0], port))
     }
@@ -71,6 +77,8 @@ mod filters {
                                 .map(|e| e.to_string())
                                 .collect::<Vec<String>>(),
                         };
+                        let generated_receipts = res.receipts.join("\n\t");
+                        println!("\nParse {} events, \nnot parsed stream part: {}, \ngenerated receipts: \n\t{}, \n\nprocessing_errors: {:?}", res.parsed, res.not_parsed, generated_receipts, res.errors);
                         // let response = serde_json::to_string(&res).unwrap();
                         Ok(with_status(warp::reply::json(&res), StatusCode::OK))
                     }

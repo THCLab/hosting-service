@@ -27,4 +27,17 @@ For usage examples check [`tests`](https://github.com/THCLab/keri-witness-http/t
 It serves witness app on port `3030`.
 
 #### With cargo 
-You can also run app using `cargo run` in the project directory. Witness app will listen on `localhost:3030`.
+You can also run app using `cargo run` in the project directory.
+
+```
+USAGE:
+    keri-witness-http [OPTIONS]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+        --api-port <api-port>                  Witness listen port [default: 3030]
+    -d, --witness-db-path <witness-db-path>    Witness db path [default: witness.db]
+```

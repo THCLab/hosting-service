@@ -1,6 +1,7 @@
 use std::{convert::TryFrom, path::Path};
 
 use keri::keri::witness::Witness as KeriWitness;
+use keri::prefix::BasicPrefix;
 use keri::{
     event_message::signed_event_message::{Message, SignedNontransferableReceipt},
     event_parsing::{message::signed_event_stream, SignedEventData},
@@ -25,10 +26,15 @@ impl Witness {
         }
     }
 
+    pub fn get_prefix(&self) -> BasicPrefix {
+        self.witness.prefix.clone()
+    }
+
     pub fn process(
         &self,
         stream: &str,
     ) -> Result<(Vec<SignedNontransferableReceipt>, Vec<Error>, Vec<u8>)> {
+        // println!("\nGot events stream: {}\n", stream);
         // Parse incoming events
         let (rest, events) = signed_event_stream(stream.as_bytes()).map_err(|err| {
             let reason = err.map(|(_rest, kind)| kind.description().to_string());
@@ -45,13 +51,15 @@ impl Witness {
             let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
             // process parsed events
             let (receipts, processing_errors) = self.witness.process(&oks)?;
-            let errors = processing_errors.into_iter().map(|e| Error::KerioxError(e));
-            
+            let errors = processing_errors.into_iter().map(Error::KerioxError);
+
             let all_errors = parsing_errors
                 .into_iter()
                 .map(|e| e.unwrap_err())
                 .chain(errors)
                 .collect();
+
+            // TODO update key state in resolver
             Ok((receipts, all_errors, rest.to_vec()))
         }
     }
