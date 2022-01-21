@@ -1,7 +1,7 @@
 use std::{convert::TryFrom, path::Path};
 
 use keri::keri::witness::Witness as KeriWitness;
-use keri::prefix::BasicPrefix;
+use keri::prefix::{BasicPrefix, Prefix};
 use keri::{
     event_message::signed_event_message::{Message, SignedNontransferableReceipt},
     event_parsing::{message::signed_event_stream, SignedEventData},
@@ -20,6 +20,7 @@ pub struct Witness {
 impl Witness {
     pub fn new(db_path: &Path, resolvers: Vec<String>) -> Self {
         let wit = KeriWitness::new(db_path).unwrap();
+
         Self {
             resolvers,
             witness: wit,
@@ -59,7 +60,22 @@ impl Witness {
                 .chain(errors)
                 .collect();
 
-            // TODO update key state in resolver
+            // TODO not every receipt should update resolver.
+            for rct in receipts.iter() {
+                match self.witness.get_state_for_prefix(&rct.body.event.prefix)? {
+                    // update key state in resolver
+                    Some(state) => {
+                        let resolver = self.resolvers.first().expect("There's no resolver set");
+                        if let Err(e) =
+                            ureq::put(&[resolver, "/key_states/", &state.prefix.to_str()].join(""))
+                                .send_json(&state)
+                        {
+                            println!("Problem with publishing state in resolver: {:?}", e);
+                        };
+                    }
+                    None => (),
+                };
+            }
             Ok((receipts, all_errors, rest.to_vec()))
         }
     }

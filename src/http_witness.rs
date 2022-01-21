@@ -1,5 +1,6 @@
 use crate::witness::Witness;
 use keri::prefix::Prefix;
+use serde_json::json;
 use std::{path::Path, sync::Arc};
 use warp::Future;
 
@@ -8,10 +9,23 @@ pub struct HttpWitness {
 }
 
 impl HttpWitness {
-    pub fn new(db_path: &Path) -> Self {
-        Self {
-            witness: Arc::new(Witness::new(db_path, vec![])),
-        }
+    pub fn new(db_path: &Path, witness_port: u16, resolver_address: String) -> Self {
+        let wit = Self {
+            witness: Arc::new(Witness::new(db_path, vec![resolver_address.clone()])),
+        };
+        // publish witness ip in resolver
+        let witness_addres = format!("127.0.0.1:{}", witness_port);
+        println!("witness adre: {}", witness_addres);
+        if let Err(e) = ureq::put(&format!(
+            "{}/witness_ips/{}",
+            resolver_address,
+            wit.witness.get_prefix().to_str()
+        ))
+        .send_json(json!({ "ip": witness_addres }))
+        {
+            println!("Problem with publishing ip in resolver: {:?}", e);
+        };
+        wit
     }
 
     pub fn listen(&self, port: u16) -> impl Future {

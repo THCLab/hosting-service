@@ -7,8 +7,9 @@ use tempfile::tempdir;
 async fn basic_test() {
     tokio::spawn(async {
         let dir = tempdir().unwrap();
-        let service = HttpWitness::new(&dir.path());
-        service.listen(3030).await;
+        let port = 3030;
+        let service = HttpWitness::new(&dir.path(), port, "localhost:9599".to_string());
+        service.listen(port).await;
     });
 
     let sent_event = r#"{"v":"KERI10JSON00017e_","t":"icp","d":"ELYk-z-SuTIeDncLr6GhwVUKnv3n3F1bF18qkXNd2bpk","i":"ELYk-z-SuTIeDncLr6GhwVUKnv3n3F1bF18qkXNd2bpk","s":"0","kt":"2","k":["DSuhyBcPZEZLK-fcw5tzHn2N46wRCG_ZOoeKtWTOunRA","DVcuJOOJF1IE8svqEtrSuyQjGTd2HhfAkt9y2QkUtFJI","DT1iAhBWCkvChxNWsby2J0pJyxBIxbAtbLA0Ljx-Grh8"],"n":"E9izzBkXX76sqt0N-tfLzJeRqj0W56p4pDQ_ZqNCDpyw","bt":"0","b":[],"c":[],"a":[]}-AADAA39j08U7pcU66OPKsaPExhBuHsL5rO1Pjq5zMgt_X6jRbezevis6YBUg074ZNKAGdUwHLqvPX_kse4buuuSUpAQABphobpuQEZ6EhKLhBuwgJmIQu80ZUV1GhBL0Ht47Hsl1rJiMwE2yW7-yi8k3idw2ahlpgdd9ka9QOP9yQmMWGAQACM7yfK1b86p1H62gonh1C7MECDCFBkoH0NZRjHKAEHebvd2_LLz6cpCaqKWDhbM2Rq01f9pgyDTFNLJMxkC-fAQ"#;
@@ -73,7 +74,7 @@ async fn test_process_stream() {
 
     tokio::spawn(async {
         let dir = tempdir().unwrap();
-        let service = HttpWitness::new(&dir.path());
+        let service = HttpWitness::new(&dir.path(), 3031, "localhost:9599".to_string());
         service.listen(3031).await;
     });
     let client = reqwest::Client::new();
