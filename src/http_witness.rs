@@ -9,13 +9,21 @@ pub struct HttpWitness {
 }
 
 impl HttpWitness {
-    pub fn new(db_path: &Path, witness_port: u16, resolver_address: String) -> Self {
+    pub fn new(
+        db_path: &Path,
+        witness_host: String,
+        witness_port: u16,
+        resolver_address: String,
+    ) -> Self {
         let wit = Self {
             witness: Arc::new(Witness::new(db_path, vec![resolver_address.clone()])),
         };
         // publish witness ip in resolver
-        let witness_addres = format!("127.0.0.1:{}", witness_port);
-        println!("witness adre: {}", witness_addres);
+        let witness_addres = format!("{}:{}", witness_host, witness_port);
+        println!(
+            "Publishing witness IP ( {} ), to known resolver ( {} )",
+            resolver_address, witness_addres
+        );
         if let Err(e) = ureq::put(&format!(
             "{}/witness_ips/{}",
             resolver_address,
@@ -23,7 +31,7 @@ impl HttpWitness {
         ))
         .send_json(json!({ "ip": witness_addres }))
         {
-            println!("Problem with publishing ip in resolver: {:?}", e);
+            println!("Problem with publishing ip to resolver: {:?}", e);
         };
         wit
     }
@@ -31,7 +39,7 @@ impl HttpWitness {
     pub fn listen(&self, port: u16) -> impl Future {
         let api = filters::all_filters(Arc::clone(&self.witness));
         println!(
-            "Witness {} is listening on port {}",
+            "Witness with DID {} is listening on port {}",
             self.witness.get_prefix().to_str(),
             port
         );
