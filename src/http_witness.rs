@@ -22,7 +22,7 @@ impl HttpWitness {
         let witness_addres = format!("{}:{}", witness_host, witness_port);
         println!(
             "Publishing witness IP ( {} ), to known resolver ( {} )",
-            resolver_address, witness_addres
+            witness_addres, resolver_address
         );
         if let Err(e) = ureq::put(&format!(
             "{}/witness_ips/{}",
