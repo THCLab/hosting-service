@@ -66,8 +66,9 @@ impl Witness {
                     // update key state in resolver
                     Some(state) => {
                         let resolver = self.resolvers.first().expect("There's no resolver set");
+                        // TODO: Should send signed event data as octet-stream
                         if let Err(e) =
-                            ureq::put(&[resolver, "/key_states/", &state.prefix.to_str()].join(""))
+                            ureq::post(&[resolver, "/messages/", &state.prefix.to_str()].join(""))
                                 .send_json(&state)
                         {
                             println!("Problem with publishing state in resolver: {:?}", e);
