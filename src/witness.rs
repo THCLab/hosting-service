@@ -61,20 +61,15 @@ impl Witness {
                 .collect();
 
             // TODO not every receipt should update resolver.
-            for rct in receipts.iter() {
-                match self.witness.get_state_for_prefix(&rct.body.event.prefix)? {
-                    // update key state in resolver
-                    Some(state) => {
-                        let resolver = self.resolvers.first().expect("There's no resolver set");
-                        // TODO: Should send signed event data as octet-stream
-                        if let Err(e) =
-                            ureq::post(&[resolver, "/messages/", &state.prefix.to_str()].join(""))
-                                .send_json(&state)
-                        {
-                            println!("Problem with publishing state in resolver: {:?}", e);
-                        };
-                    }
-                    None => (),
+            for receipt in receipts.iter() {
+                let id = &receipt.body.event.prefix;
+
+                if let Some(events) = self.witness.processor.get_kerl(id)? {
+                    let resolver = self.resolvers.first().expect("There's no resolver set");
+                    let url = format!("{}/messages/{}", resolver, id.to_str());
+                    if let Err(e) = ureq::post(&url).send_bytes(&events) {
+                        println!("Problem with publishing state in resolver: {:?}", e);
+                    };
                 };
             }
             Ok((receipts, all_errors, rest.to_vec()))
