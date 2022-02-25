@@ -26,6 +26,16 @@ impl Witness {
         }
     }
 
+    /// Creates a new Witness using the specified private ED25519_dalek key.
+    pub fn new_with_key(db_path: &Path, resolvers: Vec<String>, priv_key: &[u8]) -> Self {
+        let wit = KeriWitness::new_with_key(db_path, priv_key).unwrap();
+
+        Self {
+            resolvers,
+            witness: wit,
+        }
+    }
+
     pub fn get_prefix(&self) -> BasicPrefix {
         self.witness.prefix.clone()
     }
