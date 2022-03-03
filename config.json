@@ -1,0 +1,23 @@
+{
+	"witnesses": 
+	[
+		{
+			"witness_db_path": "db/BMOaOdnrbEP-MSQE_CaL7BhGXvqvIdoHEMYcOnUAWjOE",
+			"api_host": "127.0.0.1",
+			"api_port": 3232,
+			"priv_key": [183, 87, 170, 182, 51, 79, 64, 247, 230, 161, 67, 251, 62, 250, 133, 206, 206, 21, 174, 135, 195, 237, 43, 108, 154, 238, 43, 90, 196, 15, 150, 78]
+		},
+		{
+			"witness_db_path": "db/BZFIYlHDQAHxHH3TJsjMhZFbVR_knDzSc3na_VHBZSBs",
+			"api_host": "127.0.0.1",
+			"api_port": 3233,
+			"priv_key": [21, 120, 168, 3, 15, 153, 58, 129, 53, 63, 145, 236, 188, 101, 98, 240, 249, 33, 84, 87, 115, 252, 212, 234, 240, 230, 185, 65, 122, 21, 85, 23]
+		},
+		{
+			"witness_db_path": "db/BYSUc5ahFNbTaqesfY-6YJwzALaXSx-_Mvbs6y3I74js",
+			"api_host": "127.0.0.1",
+			"api_port": 3234,
+			"priv_key": [107, 66, 86, 169, 103, 190, 166, 119, 253, 194, 127, 101, 140, 29, 112, 201, 217, 34, 102, 103, 85, 88, 142, 121, 235, 187, 182, 26, 91, 53, 222, 194]
+		}
+	]
+}

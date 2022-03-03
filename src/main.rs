@@ -1,50 +1,59 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use anyhow::Result;
+use figment::{
+    providers::{Format, Json},
+    Figment,
+};
+use futures::future::join_all;
 use keri_witness_http::http_witness::HttpWitness;
+use serde::Deserialize;
 use structopt::StructOpt;
+
+#[derive(Deserialize)]
+struct Config {
+    witnesses: Option<Vec<WitnessData>>,
+}
+
+#[derive(Deserialize)]
+pub struct WitnessData {
+    witness_db_path: PathBuf,
+    /// Witness listen host.
+    api_host: String,
+    /// Witness listen port.
+    api_port: u16,
+    /// Witness private key
+    priv_key: Option<Vec<u8>>,
+}
 
 #[derive(Debug, StructOpt)]
 struct Opts {
-    /// Witness db path.
-    #[structopt(
-        short = "d",
-        long,
-        default_value = "witness.db",
-        env = "WITNESS_DB_FILE"
-    )]
-    witness_db_path: PathBuf,
-
-    /// Witness listen host.
-    #[structopt(short = "h", long, default_value = "0.0.0.0", env = "WITNESS_API_HOST")]
-    api_host: String,
-
-    /// Witness listen port.
-    #[structopt(short = "p", long, default_value = "3030", env = "WITNESS_API_PORT")]
-    api_port: u16,
-
-    /// Resolver address.
-    #[structopt(
-        short = "r",
-        default_value = "0.0.0.0:9599",
-        env = "DKMS_RESOLVER_ENDPOINT"
-    )]
-    resolver_address: String,
+    #[structopt(short = "c", long, default_value = "config.json")]
+    config_file: String,
 }
 
 #[tokio::main]
-async fn main() {
-    let Opts {
-        witness_db_path: kel_db_path,
-        api_host,
-        api_port,
-        resolver_address,
-    } = Opts::from_args();
+async fn main() -> Result<()> {
+    let Opts { config_file } = Opts::from_args();
 
-    let service = HttpWitness::new(
-        kel_db_path.as_path(),
-        api_host,
-        api_port,
-        ["http://".to_string(), resolver_address].join(""),
-    );
-    service.listen(api_port).await;
+    let Config { witnesses } = Figment::new().join(Json::file(config_file)).extract()?;
+
+    if let Some(witnesses) = witnesses {
+        join_all(witnesses.iter().map(|data| {
+            let sk = data.priv_key.as_ref().map(|k| k.as_slice());
+            let service = HttpWitness::new(
+                data.witness_db_path.as_path(),
+                data.api_host.clone(),
+                data.api_port,
+                sk,
+            );
+            service.listen()
+        }))
+        .await;
+    } else {
+        let service = HttpWitness::new(&Path::new("db"), "127.0.0.1".into(), 3214, None);
+        service.listen().await;
+    }
+
+    Ok(())
 }

@@ -1,7 +1,15 @@
+use std::sync::Arc;
 use std::{convert::TryFrom, path::Path};
 
+use keri::derivation::self_addressing::SelfAddressing;
+use keri::derivation::self_signing::SelfSigning;
+use keri::event::SerializationFormats;
 use keri::keri::witness::Witness as KeriWitness;
-use keri::prefix::{BasicPrefix, Prefix};
+use keri::oobi::{Oobi, OobiManager, Scheme};
+use keri::prefix::BasicPrefix;
+use keri::processor::validator::EventValidator;
+use keri::query::reply::{ReplyEvent, SignedReply};
+use keri::signer::Signer;
 use keri::{
     event_message::signed_event_message::Message, event_parsing::message::signed_event_stream,
     prefix::IdentifierPrefix,
@@ -12,16 +20,21 @@ use crate::error::Error;
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct Witness {
-    resolvers: Vec<String>,
+    pub address: String,
     witness: KeriWitness,
+    pub oobi_manager: OobiManager,
+    signer: Arc<Signer>,
 }
 
 impl Witness {
-    pub fn new(db_path: &Path, resolvers: Vec<String>) -> Self {
-        let wit = KeriWitness::new(db_path).unwrap();
+    pub fn new(db_path: &Path, address: String, signer: Arc<Signer>) -> Self {
+        let wit = KeriWitness::new(db_path, signer.public_key()).unwrap();
+        let oobi_manager = OobiManager::new(EventValidator::new(wit.get_db_ref()));
 
         Self {
-            resolvers,
+            address,
+            signer: signer,
+            oobi_manager,
             witness: wit,
         }
     }
@@ -31,7 +44,7 @@ impl Witness {
     }
 
     pub fn process(&self, stream: &str) -> Result<(Vec<Message>, Vec<Error>, Vec<u8>)> {
-        // println!("\nGot events stream: {}\n", stream);
+        println!("\nGot events stream: {}\n", stream);
         // Parse incoming events
         let (rest, events) = signed_event_stream(stream.as_bytes()).map_err(|err| {
             let reason = err.map(|(_rest, kind)| kind.description().to_string());
@@ -48,7 +61,7 @@ impl Witness {
             let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
             // process parsed events
             let processing_errors = self.witness.process(&oks)?;
-            let responses = self.witness.respond()?;
+            let responses = self.witness.respond(self.signer.clone())?;
 
             let errors = processing_errors
                 .unwrap_or_default()
@@ -60,30 +73,6 @@ impl Witness {
                 .map(|e| e.unwrap_err())
                 .chain(errors)
                 .collect();
-
-
-            let publish_state = |id: &IdentifierPrefix| -> Result<()> {
-                if let Some(events) = self.witness.get_kel_for_prefix(&id)? {
-                    let resolver = self.resolvers.first().expect("There's no resolver set");
-                    let url = format!("{}/messages/{}", resolver, id.to_str());
-                    if let Err(e) = ureq::post(&url).send_bytes(&events) {
-                        println!("Problem with publishing state in resolver: {:?}", e);
-                    };
-                };
-                Ok(())
-            };
-            let _updated_ids =
-                responses
-                    .iter()
-                    .map(|msg| msg.get_prefix())
-                    // remove duplicates
-                    .fold(vec![], |mut acc, id| {
-                        if !acc.contains(&id) {
-                            acc.push(id);
-                            publish_state(&id);
-                        }
-                        acc
-                    });
 
             Ok((responses, all_errors, rest.to_vec()))
         }
@@ -97,5 +86,23 @@ impl Witness {
         self.witness
             .get_receipts_for_prefix(&id)
             .map_err(|e| Error::KerioxError(e))
+    }
+
+    pub fn oobi_proof(&self, url: String) -> Result<Message> {
+        let oobi = Oobi::new(
+            IdentifierPrefix::Basic(self.get_prefix()),
+            Scheme::Http,
+            url,
+        );
+        let rpy = ReplyEvent::new_reply(
+            oobi,
+            keri::query::Route::ReplyOobi,
+            SelfAddressing::Blake3_256,
+            SerializationFormats::JSON,
+        )?;
+        let signature = SelfSigning::Ed25519Sha512
+            .derive(self.signer.clone().sign(rpy.serialize().unwrap()).unwrap());
+        let rr = SignedReply::new_nontrans(rpy, self.get_prefix(), signature);
+        Ok(Message::SignedOobi(rr))
     }
 }

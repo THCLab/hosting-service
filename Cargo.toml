@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-keri = { git = "ssh://git@github.com/THCLab/keriox.git", features = ["query"] }
+keri = { git = "ssh://git@github.com/THCLab/keriox.git", branch = "oobis", features = ["query", "oobi"] }
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 ed25519-dalek = "1.0.1"
@@ -17,6 +17,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.69"
 structopt = "0.3.25"
 ureq = { version = "2.4.0", features = ["json"] }
+figment = { version = "0.10.6", features = ["json"] }
+anyhow = "1.0.51"
+futures = { version = "0.3.19", features = ["std"] }
 
 [dev-dependencies]
 reqwest = "0.11.6"

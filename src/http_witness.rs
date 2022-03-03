@@ -1,50 +1,40 @@
 use crate::witness::Witness;
-use keri::prefix::Prefix;
-use serde_json::json;
+use keri::{prefix::Prefix, signer::Signer};
 use std::{path::Path, sync::Arc};
 use warp::Future;
 
 pub struct HttpWitness {
+    host: String,
+    port: u16,
     witness: Arc<Witness>,
 }
 
 impl HttpWitness {
-    pub fn new(
-        db_path: &Path,
-        witness_host: String,
-        witness_port: u16,
-        resolver_address: String,
-    ) -> Self {
-        let wit = Self {
-            witness: Arc::new(Witness::new(db_path, vec![resolver_address.clone()])),
+    /// Uses provided ED25519 priv key or a random one if none.
+    pub fn new(db_path: &Path, host: String, port: u16, priv_key: Option<&[u8]>) -> Self {
+        let signer = match priv_key {
+            Some(priv_key) => Signer::new_with_key(priv_key).unwrap(),
+            None => Signer::new(),
         };
-        // publish witness ip in resolver
-        let witness_addres = format!("{}:{}", witness_host, witness_port);
-        println!(
-            "Publishing witness IP ( {} ), to known resolver ( {} )",
-            witness_addres, resolver_address
-        );
-        if let Err(e) = ureq::put(&format!(
-            "{}/witness_ips/{}",
-            resolver_address,
-            wit.witness.get_prefix().to_str()
-        ))
-        .send_json(json!({ "ip": witness_addres }))
-        {
-            println!("Problem with publishing ip to resolver: {:?}", e);
-        };
-        wit
+
+        let address = format!("{}:{}", host, port);
+        let witness = Arc::new(Witness::new(db_path, address, Arc::new(signer)));
+        Self {
+            host,
+            port,
+            witness,
+        }
     }
 
-    pub fn listen(&self, port: u16) -> impl Future {
+    pub fn listen(&self) -> impl Future {
         let api = filters::all_filters(Arc::clone(&self.witness));
         println!(
             "Witness with DID {} is listening on port {}",
             self.witness.get_prefix().to_str(),
-            port
+            self.port
         );
 
-        warp::serve(api).run(([0, 0, 0, 0], port))
+        warp::serve(api).run(([0, 0, 0, 0], self.port))
     }
 }
 
@@ -64,7 +54,9 @@ mod filters {
     pub fn all_filters(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        publish(db.clone()).or(get_kel(db.clone()).or(get_receipts(db)))
+        publish(db.clone()).or(get_kel(db.clone())
+            .or(get_receipts(db.clone()))
+            .or(get_oobi_proof(db)))
     }
 
     // POST /publish with JSON body
@@ -168,6 +160,33 @@ mod filters {
                                     .into_response()
                             }
                             None => StatusCode::NOT_FOUND.into_response(),
+                        }
+                    }
+                    Err(_e) => StatusCode::NOT_FOUND.into_response(),
+                }
+            })
+    }
+
+    // GET /oobi/{identifier}
+    pub fn get_oobi_proof(
+        witness: Arc<Witness>,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path("oobi")
+            .and(warp::path::param())
+            .and(warp::any().map(move || witness.clone()))
+            .map(move |identifier: String, wit: Arc<Witness>| {
+                match identifier.parse::<IdentifierPrefix>() {
+                    Ok(id) => {
+                        if IdentifierPrefix::Basic(wit.get_prefix()) == id {
+                            let resp = wit
+                                .oobi_proof(wit.clone().address.clone())
+                                .unwrap()
+                                .to_cesr()
+                                .unwrap();
+                            with_status(String::from_utf8(resp).unwrap(), StatusCode::OK)
+                                .into_response()
+                        } else {
+                            StatusCode::NOT_FOUND.into_response()
                         }
                     }
                     Err(_e) => StatusCode::NOT_FOUND.into_response(),
