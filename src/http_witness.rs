@@ -98,8 +98,8 @@ mod filters {
                                 .map(|e| e.to_string())
                                 .collect::<Vec<String>>(),
                         };
-                        let generated_receipts = res.receipts.join("\n\t");
-                        println!("\nParse {} events, \nnot parsed stream part: {}, \ngenerated receipts: \n\t{}, \n\nprocessing_errors: {:?}", res.parsed, res.not_parsed, generated_receipts, res.errors);
+                        // let generated_receipts = res.receipts.join("\n\t");
+                        // println!("\nParse {} events, \nnot parsed stream part: {}, \ngenerated receipts: \n\t{}, \n\nprocessing_errors: {:?}", res.parsed, res.not_parsed, generated_receipts, res.errors);
                         // let response = serde_json::to_string(&res).unwrap();
                         Ok(with_status(warp::reply::json(&res), StatusCode::OK))
                     }

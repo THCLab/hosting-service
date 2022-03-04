@@ -8,7 +8,7 @@ use keri::keri::witness::Witness as KeriWitness;
 use keri::oobi::{Oobi, OobiManager, Scheme};
 use keri::prefix::BasicPrefix;
 use keri::processor::validator::EventValidator;
-use keri::query::reply::{ReplyEvent, SignedReply};
+use keri::query::reply_event::{ReplyEvent, SignedReply};
 use keri::signer::Signer;
 use keri::{
     event_message::signed_event_message::Message, event_parsing::message::signed_event_stream,
@@ -58,9 +58,20 @@ impl Witness {
                 .into_iter()
                 .map(|e| Message::try_from(e).map_err(|e| Error::ParseError(e.to_string())))
                 .partition(Result::is_ok);
-            let oks: Vec<_> = oks.into_iter().map(Result::unwrap).collect();
+            let (oobis, keri_events): (Vec<_>, Vec<_>) = oks.into_iter().map(Result::unwrap).partition(|msg| matches!(msg, Message::SignedOobi(_)));
+
             // process parsed events
-            let processing_errors = self.witness.process(&oks)?;
+            let processing_errors = self.witness.process(&keri_events)?;
+            let _oobis_loading = oobis
+                .iter()
+                .map(|msg| {
+                    // TODO verify oobi signature? signatures are ignored now.
+                    if let Message::SignedOobi(oobi) = msg {
+                        let oobi_url: url::Url = oobi.reply.event.content.data.data.clone().into();
+                        self.oobi_manager.process_oobi(&oobi_url.to_string());
+                    }
+                    self.oobi_manager.load()
+                });
             let responses = self.witness.respond(self.signer.clone())?;
 
             let errors = processing_errors
