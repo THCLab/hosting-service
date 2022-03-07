@@ -11,6 +11,7 @@ tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 ed25519-dalek = "1.0.1"
 rand = { version = "0.7.3", features = ["std", "getrandom"] }
+hex = "0.4.3"
 http = "0.2.5"
 thiserror = "1.0.29"
 serde = { version = "1.0", features = ["derive"] }

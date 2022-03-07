@@ -9,14 +9,21 @@ pub struct HttpWitness {
 }
 
 impl HttpWitness {
+    /// Uses provided ED25519 priv key or a random one if none.
     pub fn new(
         db_path: &Path,
+        priv_key: Option<&[u8]>,
         witness_host: String,
         witness_port: u16,
         resolver_address: String,
     ) -> Self {
+        let resolvers = vec![resolver_address.clone()];
+        let wit = match priv_key {
+            Some(priv_key) => Witness::new_with_key(db_path, resolvers, priv_key),
+            None => Witness::new(db_path, resolvers),
+        };
         let wit = Self {
-            witness: Arc::new(Witness::new(db_path, vec![resolver_address.clone()])),
+            witness: Arc::new(wit),
         };
         // publish witness ip in resolver
         let witness_addres = format!("{}:{}", witness_host, witness_port);
