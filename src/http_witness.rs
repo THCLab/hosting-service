@@ -52,7 +52,10 @@ mod filters {
     use std::sync::Arc;
 
     use http::StatusCode;
-    use keri::{event_parsing::SignedEventData, prefix::IdentifierPrefix};
+    use keri::{
+        event_message::signed_event_message::Message, event_parsing::SignedEventData,
+        prefix::IdentifierPrefix,
+    };
 
     use warp::{hyper::body::Bytes, reply::with_status, Filter, Reply};
 
@@ -90,8 +93,12 @@ mod filters {
                             receipts: receipts
                                 .into_iter()
                                 .map(|r| {
-                                    String::from_utf8(SignedEventData::from(r).to_cesr().unwrap())
-                                        .unwrap()
+                                    if let Message::NontransferableRct(rct) = r {
+                                        String::from_utf8(SignedEventData::from(rct).to_cesr().unwrap())
+                                            .unwrap()
+                                    } else {
+                                        todo!()
+                                    }
                                 })
                                 .collect(),
                             errors: errors
