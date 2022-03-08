@@ -71,7 +71,6 @@ impl Witness {
                 .chain(errors)
                 .collect();
 
-
             let publish_state = |id: &IdentifierPrefix| -> Result<()> {
                 if let Some(events) = self.witness.get_kel_for_prefix(&id)? {
                     let resolver = self.resolvers.first().expect("There's no resolver set");
@@ -82,18 +81,22 @@ impl Witness {
                 };
                 Ok(())
             };
-            let _updated_ids =
-                responses
-                    .iter()
-                    .map(|msg| msg.get_prefix())
-                    // remove duplicates
-                    .fold(vec![], |mut acc, id| {
-                        if !acc.contains(&id) {
-                            acc.push(id);
-                            publish_state(&id);
-                        }
-                        acc
-                    });
+            let _updated_ids = responses
+                .iter()
+                .map(|msg| msg.get_prefix())
+                // remove duplicates
+                .fold(vec![], |mut acc, id| {
+                    if !acc.contains(&id) {
+                        acc.push(id.clone());
+                        match publish_state(&id) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                eprintln!("Publishing state failed: {}", err);
+                            }
+                        };
+                    }
+                    acc
+                });
 
             Ok((responses, all_errors, rest.to_vec()))
         }
