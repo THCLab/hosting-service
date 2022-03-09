@@ -71,7 +71,9 @@ mod filters {
     pub fn all_filters(
         db: Arc<Witness>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        publish(db.clone()).or(get_kel(db.clone()).or(get_receipts(db)))
+        publish(db.clone())
+            .or(get_kel(db.clone()).or(get_receipts(db)))
+            .with(warp::log(module_path!()))
     }
 
     // POST /publish with JSON body

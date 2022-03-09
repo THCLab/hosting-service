@@ -10,6 +10,7 @@ keri = { git = "ssh://git@github.com/THCLab/keriox.git", features = ["query"] }
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 ed25519-dalek = "1.0.1"
+env_logger = "0.9.0"
 rand = { version = "0.7.3", features = ["std", "getrandom"] }
 hex = "0.4.3"
 http = "0.2.5"
