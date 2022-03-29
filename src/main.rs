@@ -18,6 +18,7 @@ struct Config {
 #[derive(Deserialize)]
 pub struct WitnessData {
     witness_db_path: PathBuf,
+    oobis_db_path: PathBuf,
     /// Witness listen host.
     api_host: String,
     /// Witness listen port.
@@ -43,6 +44,7 @@ async fn main() -> Result<()> {
             let sk = data.priv_key.as_ref().map(|k| k.as_slice());
             let service = HttpWitness::new(
                 data.witness_db_path.as_path(),
+                data.oobis_db_path.as_path(),
                 data.api_host.clone(),
                 data.api_port,
                 sk,
@@ -51,7 +53,7 @@ async fn main() -> Result<()> {
         }))
         .await;
     } else {
-        let service = HttpWitness::new(&Path::new("db"), "127.0.0.1".into(), 3214, None);
+        let service = HttpWitness::new(&Path::new("db"), &Path::new("oobi_db"), "127.0.0.1".into(), 3214, None);
         service.listen().await;
     }
 

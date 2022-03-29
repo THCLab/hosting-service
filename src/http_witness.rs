@@ -11,14 +11,14 @@ pub struct HttpWitness {
 
 impl HttpWitness {
     /// Uses provided ED25519 priv key or a random one if none.
-    pub fn new(db_path: &Path, host: String, port: u16, priv_key: Option<&[u8]>) -> Self {
+    pub fn new(db_path: &Path, oobi_path: &Path, host: String, port: u16, priv_key: Option<&[u8]>) -> Self {
         let signer = match priv_key {
             Some(priv_key) => Signer::new_with_key(priv_key).unwrap(),
             None => Signer::new(),
         };
 
         let address = format!("{}:{}", host, port);
-        let witness = Arc::new(Witness::new(db_path, address, Arc::new(signer)));
+        let witness = Arc::new(Witness::new(db_path, oobi_path, address, Arc::new(signer)));
         Self {
             host,
             port,
@@ -179,7 +179,7 @@ mod filters {
                     Ok(id) => {
                         if IdentifierPrefix::Basic(wit.get_prefix()) == id {
                             let resp = wit
-                                .oobi_proof(wit.clone().address.clone())
+                                .oobi_proof(format!("http://{}", wit.clone().address.clone()))
                                 .unwrap()
                                 .to_cesr()
                                 .unwrap();

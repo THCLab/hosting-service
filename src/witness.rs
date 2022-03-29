@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::sync::Arc;
 use std::{convert::TryFrom, path::Path};
 
@@ -6,7 +7,7 @@ use keri::derivation::self_signing::SelfSigning;
 use keri::event::SerializationFormats;
 use keri::keri::witness::Witness as KeriWitness;
 use keri::oobi::{Oobi, OobiManager, Scheme};
-use keri::prefix::BasicPrefix;
+use keri::prefix::{BasicPrefix, Prefix};
 use keri::processor::validator::EventValidator;
 use keri::query::reply_event::{ReplyEvent, SignedReply};
 use keri::signer::Signer;
@@ -27,9 +28,9 @@ pub struct Witness {
 }
 
 impl Witness {
-    pub fn new(db_path: &Path, address: String, signer: Arc<Signer>) -> Self {
+    pub fn new(db_path: &Path, oobi_path: &Path, address: String, signer: Arc<Signer>) -> Self {
         let wit = KeriWitness::new(db_path, signer.public_key()).unwrap();
-        let oobi_manager = OobiManager::new(EventValidator::new(wit.get_db_ref()));
+        let oobi_manager = OobiManager::new(EventValidator::new(wit.get_db_ref()), oobi_path);
 
         Self {
             address,
@@ -44,7 +45,7 @@ impl Witness {
     }
 
     pub fn process(&self, stream: &str) -> Result<(Vec<Message>, Vec<Error>, Vec<u8>)> {
-        println!("\nGot events stream: {}\n", stream);
+        println!("\nWitness {} got events stream: {}\n", self.get_prefix().to_str(), stream);
         // Parse incoming events
         let (rest, events) = signed_event_stream(stream.as_bytes()).map_err(|err| {
             let reason = err.map(|(_rest, kind)| kind.description().to_string());
@@ -67,7 +68,7 @@ impl Witness {
                 .map(|msg| {
                     // TODO verify oobi signature? signatures are ignored now.
                     if let Message::SignedOobi(oobi) = msg {
-                        let oobi_url: url::Url = oobi.reply.event.content.data.data.clone().into();
+                        let oobi_url: url::Url = oobi.reply.get_oobi().try_into().unwrap();
                         self.oobi_manager.process_oobi(&oobi_url.to_string());
                     }
                     self.oobi_manager.load()
@@ -103,7 +104,7 @@ impl Witness {
         let oobi = Oobi::new(
             IdentifierPrefix::Basic(self.get_prefix()),
             Scheme::Http,
-            url,
+            url::Url::parse(&url).unwrap(),
         );
         let rpy = ReplyEvent::new_reply(
             oobi,

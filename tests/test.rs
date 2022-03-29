@@ -7,8 +7,9 @@ use tempfile::tempdir;
 async fn basic_test() {
     tokio::spawn(async {
         let dir = tempdir().unwrap();
+        let oobi_dir = tempdir().unwrap();
         let port = 3030;
-        let service = HttpWitness::new(&dir.path(), "localhost".to_string(), port, None);
+        let service = HttpWitness::new(&dir.path(), &oobi_dir.path(), "localhost".to_string(), port, None);
         service.listen().await;
     });
 
@@ -74,7 +75,8 @@ async fn test_process_stream() {
 
     tokio::spawn(async {
         let dir = tempdir().unwrap();
-        let service = HttpWitness::new(&dir.path(), "localhost:9599".to_string(), 3031, None);
+        let oobi_dir = tempdir().unwrap();
+        let service = HttpWitness::new(&dir.path(), oobi_dir.path(), "localhost:9599".to_string(), 3031, None);
         service.listen().await;
     });
     let client = reqwest::Client::new();
@@ -141,8 +143,9 @@ async fn test_process_stream() {
 async fn oobi_test() {
     tokio::spawn(async {
         let dir = tempdir().unwrap();
+        let oobi_dir = tempdir().unwrap();
         let port = 3030;
-        let service = HttpWitness::new(&dir.path(), "localhost".to_string(), port, None);
+        let service = HttpWitness::new(&dir.path(), oobi_dir.path(), "localhost".to_string(), port, None);
         service.listen().await;
     });
 
